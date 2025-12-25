@@ -1,24 +1,44 @@
-const User = require('../models/user');
-const jwt = require('jsonwebtoken');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
     try {
-        const user = await User.create(req.body);
-        res.status(201).json({ message: "User berhasil dibuat", user: { id: user.id, username: user.username } });
+        const { email, password, role } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                role: role || 'user'
+            }
+        });
+
+        res.status(201).json({ message: "User berhasil dibuat", user: { email: user.email } });
     } catch (err) {
-        res.status(400).json({ error: "Username sudah digunakan" });
+        console.error(err);
+
+        res.status(500).json({
+            error: "Gagal register",
+            message: err.message,
+            code: err.code
+        });
     }
 };
 
+// login
 exports.login = async (req, res) => {
-    const { username, password } = req.body;
-    const user = await User.findOne({ where: { username } });
-
-    if (user && await bcrypt.compare(password, user.password)) {
+    try {
+        const { email, password } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: "Email atau password salah" });
+        }
         const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-        res.json({ token, role: user.role });
-    } else {
-        res.status(401).json({ message: "Username atau password salah" });
+        res.json({ token });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 };

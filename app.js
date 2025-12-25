@@ -1,6 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
-const { db } = require('./models'); // Ini akan otomatis mencari models/index.js
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const path = require('path');
 require('dotenv').config();
 
@@ -8,19 +9,20 @@ const weatherRoutes = require('./routes/weatherRoutes');
 
 const app = express();
 
-// Security Middleware (Week 8)
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    console.log("Content-Type:", req.headers['content-type']);
+    next();
+});
+
 app.use(helmet());
 app.use(express.json());
 
-// Static Folder untuk akses foto (Week 9)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Routes (Week 3)
-app.use('/api/weather', weatherRoutes);
+app.use('/api', weatherRoutes);
 
-// Database Sync & Server Start (Week 5)
 const PORT = process.env.PORT || 3000;
-db.sync({ alter: true }).then(() => {
-    console.log('Database Connected');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });

@@ -3,3 +3,4 @@ node_modules/
 .vs/
 public/uploads/*
 !.keep
+/generated/prisma

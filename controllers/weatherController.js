@@ -1,65 +1,55 @@
-const { WeatherPhoto } = require('../models');
-const { WeatherReport } = require('../models');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-exports.createWeather = async (req, res) => {
-    try {
-        const { date, hour, temperature, condition } = req.body;
-
-        // Sekarang WeatherReport sudah terdefinisi
-        const report = await WeatherReport.create({
-            date,
-            hour,
-            temperature,
-            condition,
-            document_url: req.file ? `/uploads/${req.file.filename}` : null
-        });
-
-        res.status(201).json({ status: "success", data: report });
-    } catch (err) {
-        console.error("ERROR NYATA:", err);
-        res.status(400).json({
-            error: "Gagal menyimpan",
-            message: err.message
-        });
-    }
-};
 exports.getWeather = async (req, res) => {
     try {
         const { date, hour } = req.query;
-        const now = new Date();
-        const requestDate = new Date(date);
-
-        // Tentukan apakah ini masa depan
-        const isFuture = requestDate > now;
-
-        const data = await WeatherReport.findOne({
-            where: { date, hour },
-            // Sertakan model WeatherPhoto (Join Table)
-            include: isFuture ? [] : [{ model: WeatherPhoto }]
+        const report = await prisma.weatherReport.findFirst({
+            where: { date, hour: parseInt(hour) },
+            include: { photos: true }
         });
-
-        if (!data) return res.status(404).json({ message: "Data tidak ditemukan" });
-
-        res.json({
-            status: "success",
-            isFuture: isFuture,
-            data: data
-        });
+        if (!report) return res.status(404).json({ message: "Data tidak ditemukan" });
+        res.json(report);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
+exports.createWeather = async (req, res) => {
+    console.log("--- DEBUG UPLOAD ---");
+    console.log("Header Content-Type:", req.headers['content-type']);
+    console.log("Isi req.body:", req.body);
+    console.log("Isi req.file:", req.file);
 
+    try {
+      const { date, hour, temperature, condition } = req.body;
+
+        const report = await prisma.weatherReport.create({
+            data: {
+                date,
+                hour: parseInt(hour),
+                temperature: parseFloat(temperature),
+                condition,
+                document_url: req.file ? `/uploads/${req.file.filename}` : null
+            }
+        });
+        res.status(201).json(report);
+    } catch (err) {
+        console.error("Prisma Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
 exports.uploadPhoto = async (req, res) => {
     try {
         const { reportId } = req.body;
-        const newPhoto = await WeatherPhoto.create({
-            reportId: reportId,
-            photo_url: req.file ? `/uploads/${req.file.filename}` : null
+        const photo = await prisma.weatherPhoto.create({
+            data: {
+                reportId: parseInt(reportId),
+                photo_url: req.file ? `/uploads/${req.file.filename}` : ""
+            }
         });
-        res.status(201).json({ status: "success", data: newPhoto });
+        res.status(201).json(photo);
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        res.status(500).json({ error: err.message });
     }
 };
