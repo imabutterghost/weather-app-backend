@@ -1,16 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const weatherController = require('../controllers/weatherController');
-const authController = require('../controllers/authController');
 const { verifyToken, isAdmin } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
+// register/login are handled by routes/authRoutes.js (with validation)
 
 router.get('/detail', weatherController.getWeather);
 
-// Wrap multer to capture errors (e.g., file too large or unexpected field)
 router.post('/upload', verifyToken, (req, res, next) => {
     upload.single('document')(req, res, (err) => {
         if (err) {
